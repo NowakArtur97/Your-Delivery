@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Your Delivery Template
+Parameters:
+  SNSTopicName:
+    Type: String
+    Description: Name of the SNS topic
+    Default: delivery
+  NotificationQueueName:
+    Type: String
+    Description: Name of the Notification Queue
+    Default: notification
+  InventoryQueueName:
+    Type: String
+    Description: Name of the Inventory Queue
+    Default: inventory
+  ShipmentQueueName:
+    Type: String
+    Description: Name of the Shipment Queue
+    Default: shipment
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref SNSTopicName
+      TopicName: !Ref SNSTopicName
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref NotificationQueueName
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt NotificationQueue.Arn
+      Protocol: sqs
+      RawMessageDelivery: True
+      TopicArn: !Ref SNSTopic
+  InventoryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref InventoryQueueName
+  InventoryQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt InventoryQueue.Arn
+      Protocol: sqs
+      RawMessageDelivery: True
+      TopicArn: !Ref SNSTopic
+  ShipmentQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref ShipmentQueueName
+  ShipmentQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt ShipmentQueue.Arn
+      Protocol: sqs
+      RawMessageDelivery: True
+      TopicArn: !Ref SNSTopic
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - Ref: NotificationQueue
+        - Ref: InventoryQueue
+        - Ref: ShipmentQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+            Resource: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SNSTopic
