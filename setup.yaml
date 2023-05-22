@@ -32,8 +32,11 @@ Resources:
     Properties:
       Endpoint: !GetAtt NotificationQueue.Arn
       Protocol: sqs
-      RawMessageDelivery: True
       TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - notification
+      FilterPolicyScope: MessageBody
   InventoryQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -43,8 +46,11 @@ Resources:
     Properties:
       Endpoint: !GetAtt InventoryQueue.Arn
       Protocol: sqs
-      RawMessageDelivery: True
       TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - inventory
+      FilterPolicyScope: MessageBody
   ShipmentQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -54,8 +60,11 @@ Resources:
     Properties:
       Endpoint: !GetAtt ShipmentQueue.Arn
       Protocol: sqs
-      RawMessageDelivery: True
       TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - shipment
+      FilterPolicyScope: MessageBody
   QueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
