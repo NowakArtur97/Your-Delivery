@@ -9,3 +9,31 @@ services:
     environment:
       SERVICES: sns,sqs
       AWS_DEFAULT_REGION: eu-central-1
+      AWS_ACCESS_KEY_ID: ACCESS_KEY
+      AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY
+
+  aws-setup:
+    image: mesosphere/aws-cli:1.14.5
+    container_name: aws-setup
+    environment:
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_ACCESS_KEY_ID: ACCESS_KEY
+      AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY
+    entrypoint: /bin/sh -c
+    command: >
+      "
+        sleep 10
+        aws sns create-topic --name delivery --endpoint-url http://localstack:4566
+        echo Topic created
+        aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name notification
+        aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name inventory
+        aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name shipment
+        echo Queues created
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:notification
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:inventory
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:shipment
+        echo Subscribe queues to topic
+        echo All done
+      "
+    depends_on:
+      - localstack
