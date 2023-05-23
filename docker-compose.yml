@@ -29,9 +29,9 @@ services:
         aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name inventory
         aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name shipment
         echo Queues created
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:notification
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:inventory
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:shipment
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:notification --attributes "{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"notification\\\"]}\"}"
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:inventory --attributes "{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"inventory\\\"]}\"}"
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:shipment --attributes "{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"shipment\\\"]}\"}"
         echo Subscribe queues to topic
         echo All done
       "
