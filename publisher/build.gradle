@@ -13,9 +13,12 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-integration'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.integration:spring-integration-http'
+    // https://mvnrepository.com/artifact/io.awspring.cloud/spring-cloud-aws-starter-sns
+	implementation group: 'io.awspring.cloud', name: 'spring-cloud-aws-starter-sns', version: '3.0.1'
+	// https://mvnrepository.com/artifact/io.awspring.cloud/spring-cloud-starter-aws
+	implementation group: 'io.awspring.cloud', name: 'spring-cloud-starter-aws', version: '2.4.4'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.integration:spring-integration-test'
 }
