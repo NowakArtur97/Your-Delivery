@@ -1,6 +1,6 @@
 package com.nowakartur97.yourdelivery.publisher.message;
 
-public class MessageDTO {
+public class Message {
 
     private MessageType type;
 

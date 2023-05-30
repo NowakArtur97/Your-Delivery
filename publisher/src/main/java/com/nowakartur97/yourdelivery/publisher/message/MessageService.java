@@ -26,14 +26,13 @@ public class MessageService {
         this.objectMapper = objectMapper;
     }
 
-    public MessageResponse sendMessage(MessageDTO messageDTO) throws JsonProcessingException {
-        MessageRequest messageRequest = new MessageRequest(messageDTO.getType().getValue());
+    public MessageResponse sendMessage(Message message) throws JsonProcessingException {
         PublishRequest request = PublishRequest.builder()
                 .topicArn(topicArn)
-                .message(objectMapper.writeValueAsString(messageRequest))
+                .message(objectMapper.writeValueAsString(message))
                 .build();
         PublishResponse response = snsClient.publish(request);
         logger.info("Message sent (messageId: [" + response.messageId() + "]");
-        return new MessageResponse(response.messageId(), messageRequest);
+        return new MessageResponse(response.messageId(), message);
     }
 }

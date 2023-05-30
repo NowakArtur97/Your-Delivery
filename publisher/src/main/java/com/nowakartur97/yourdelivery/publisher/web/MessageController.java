@@ -1,7 +1,7 @@
 package com.nowakartur97.yourdelivery.publisher.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.nowakartur97.yourdelivery.publisher.message.MessageDTO;
+import com.nowakartur97.yourdelivery.publisher.message.Message;
 import com.nowakartur97.yourdelivery.publisher.message.MessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +24,8 @@ public class MessageController {
     }
 
     @PostMapping
-    public ResponseEntity<MessageResponse> sendMessage(@RequestBody MessageDTO messageDTO) throws JsonProcessingException {
-        logger.info("Message received: [" + messageDTO + "]");
-        return ResponseEntity.ok(messageService.sendMessage(messageDTO));
+    public ResponseEntity<MessageResponse> sendMessage(@RequestBody Message message) throws JsonProcessingException {
+        logger.info("Message received: [" + message + "]");
+        return ResponseEntity.ok(messageService.sendMessage(message));
     }
 }

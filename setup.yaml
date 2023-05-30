@@ -35,7 +35,7 @@ Resources:
       TopicArn: !Ref SNSTopic
       FilterPolicy:
         type:
-          - notification
+          - NOTIFICATION
       FilterPolicyScope: MessageBody
   InventoryQueue:
     Type: AWS::SQS::Queue
@@ -49,7 +49,7 @@ Resources:
       TopicArn: !Ref SNSTopic
       FilterPolicy:
         type:
-          - inventory
+          - INVENTORY
       FilterPolicyScope: MessageBody
   ShipmentQueue:
     Type: AWS::SQS::Queue
@@ -63,7 +63,7 @@ Resources:
       TopicArn: !Ref SNSTopic
       FilterPolicy:
         type:
-          - shipment
+          - SHIPMENT
       FilterPolicyScope: MessageBody
   QueuePolicy:
     Type: AWS::SQS::QueuePolicy
