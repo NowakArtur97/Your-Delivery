@@ -1,4 +1,4 @@
-package com.nowakartur97.yourdelivery.publisher.config;
+package com.nowakartur97.yourdelivery.consumer.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -7,12 +7,12 @@ import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 import java.net.URI;
 
 @Configuration
-public class SnsConfiguration {
+public class SqsConfig {
 
     @Value("${your-delivery.aws.access-key}")
     private String accessKey;
@@ -23,13 +23,13 @@ public class SnsConfiguration {
     @Value("${your-delivery.aws.region}")
     private String region;
 
-    @Value("${your-delivery.aws.sns.endpoint:#{null}}")
+    @Value("${your-delivery.aws.sqs.endpoint:#{null}}")
     private String endpoint;
 
     @Bean
     @ConditionalOnProperty(name="spring.profiles.active", havingValue="docker")
-    public SnsClient dockerSnsClient() {
-        return SnsClient.builder()
+    public SqsClient dockerSqsClient() {
+        return SqsClient.builder()
                 .region(Region.of(region))
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
@@ -38,8 +38,8 @@ public class SnsConfiguration {
 
     @Bean
     @ConditionalOnProperty(name="spring.profiles.active", havingValue="local-aws")
-    public SnsClient localAwsSnsClient() {
-        return SnsClient.builder()
+    public SqsClient localAwsSqsClient() {
+        return SqsClient.builder()
                 .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
                 .build();

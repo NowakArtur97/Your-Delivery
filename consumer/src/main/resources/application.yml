@@ -3,4 +3,4 @@ spring:
     active: ${SPRING_ACTIVE_PROFILE:local-aws}
 
 server:
-  port: 8090
+  port: 8095
