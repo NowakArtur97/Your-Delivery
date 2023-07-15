@@ -29,9 +29,9 @@ services:
         aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name inventory
         aws sqs create-queue --endpoint-url http://localstack:4566 --queue-name shipment
         echo Queues created
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:notification --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"NOTIFICATION\\\"]}\"}'
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:inventory --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"INVENTORY\\\"]}\"}'
-        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:us-east-1:000000000000:shipment --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"SHIPMENT\\\"]}\"}'
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:eu-central-1:000000000000:notification --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"NOTIFICATION\\\"]}\"}'
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:eu-central-1:000000000000:inventory --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"INVENTORY\\\"]}\"}'
+        aws --endpoint-url http://localstack:4566 sns subscribe --topic-arn arn:aws:sns:eu-central-1:000000000000:delivery --protocol sqs --notification-endpoint arn:aws:sqs:eu-central-1:000000000000:shipment --attributes '{\"RawMessageDelivery\": \"true\", \"FilterPolicy\": \"{\\\"type\\\": [\\\"SHIPMENT\\\"]}\"}'
         echo Subscribed queues to topic
         echo All done
       "

@@ -4,5 +4,5 @@ your-delivery:
     secret-key: SECRET_ACCESS_KEY
     region: eu-central-1
     sns:
-      endpoint: http://192.168.99.100:4566
       topic-arn: arn:aws:sns:eu-central-1:000000000000:delivery
+      endpoint: http://192.168.99.100:4566

@@ -1,6 +1,3 @@
-server:
-  port: 8095
-
 your-delivery:
   aws:
     access-key: ACCESS_KEY
