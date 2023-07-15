@@ -17,6 +17,14 @@ Parameters:
     Type: String
     Description: Name of the Shipment Queue
     Default: shipment
+  InstanceType:
+    Type: String
+    Description: EC2 instances size
+    Default: t2.micro
+  ImageId:
+    Type: String
+    Description: EC2 instances image id
+    Default: ami-07ce6ac5ac8a0ee6f
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
@@ -84,3 +92,25 @@ Resources:
             Condition:
               ArnEquals:
                 aws:SourceArn: !Ref SNSTopic
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.16.0.0/24
+      Tags:
+        - Key: Name
+          Value: your-delivery-vpc
+  SubnetBackend:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.16.0.0/27
+      Tags:
+        - Key: Name
+          Value: your-delivery-sn-backend
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetBackend
