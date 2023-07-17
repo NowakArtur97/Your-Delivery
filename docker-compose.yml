@@ -12,6 +12,17 @@ services:
       - aws-setup
     container_name: publisher
 
+  consumer:
+    restart: on-failure
+    build: ./consumer
+    ports:
+      - 8095:8095
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - aws-setup
+    container_name: consumer
+
   localstack:
     image: localstack/localstack:2.0.2
     container_name: localstack
