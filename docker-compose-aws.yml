@@ -1,0 +1,18 @@
+version: "3.7"
+
+services:
+  publisher:
+    restart: on-failure
+    build: ./publisher
+    image: jooki997/your-delivery-producer:1.0.0
+    ports:
+      - 8090:8090
+    container_name: publisher
+
+  consumer:
+    restart: on-failure
+    build: ./consumer
+    image: jooki997/your-delivery-consumer:1.0.0
+    ports:
+      - 8095:8095
+    container_name: consumer
