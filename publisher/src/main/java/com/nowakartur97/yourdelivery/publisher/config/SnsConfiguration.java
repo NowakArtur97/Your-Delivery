@@ -39,6 +39,16 @@ public class SnsConfiguration {
     @Bean
     @ConditionalOnProperty(name="spring.profiles.active", havingValue="local-aws")
     public SnsClient localAwsSnsClient() {
+        return createDefaultSnsClient();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name="spring.profiles.active", havingValue="default")
+    public SnsClient awsSnsClient() {
+        return createDefaultSnsClient();
+    }
+
+    private SnsClient createDefaultSnsClient() {
         return SnsClient.builder()
                 .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
