@@ -1,1 +1,3 @@
 curl -X POST -H "Content-Type: application/json" -d '{"type": "NOTIFICATION"}' http://localhost:8090/api/v1/messages
+
+curl -X GET http://localhost:8095/api/v1/messages

@@ -178,8 +178,8 @@ Resources:
           sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           cd /home/ec2-user
-          mkdir your_delivery
-          cd your_delivery
+          mkdir your-delivery-producer
+          cd your-delivery-producer
           export SNS_TOPIC_ARN="${SNSTopic}"
           echo "version: '3.7'
           services:
@@ -196,4 +196,43 @@ Resources:
               container_name: producer
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
+          sudo /usr/local/bin/docker-compose up -d
+  NotificationQueueConsumerEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetBackend
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      KeyName: !Ref KeyPairName
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo yum update -y
+          sudo amazon-linux-extras install java-openjdk11 -y
+          sudo yum install docker -y
+          sudo service docker start
+          sudo usermod -a -G docker ec2-user
+          sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          cd /home/ec2-user
+          mkdir your-delivery-consumer
+          cd your-delivery-consumer
+          export SQS_NOTIFICATION_QUEUE_URL="${NotificationQueue}"
+          echo "version: '3.7'
+          services:
+            your-delivery-producer:
+              restart: on-failure
+              image: jooki997/your-delivery-consumer:1.0.0
+              ports:
+                - 8095:8095
+              environment:
+                - SPRING_ACTIVE_PROFILE=default
+                - QUEUE_URL=$SQS_NOTIFICATION_QUEUE_URL
+                - ACCESS_KEY=ACCESS_KEY
+                - SECRET_ACCESS_KEY=SECRET_ACCESS_KEY
+              container_name: producer
+          " > docker-compose.yaml
+          sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
           sudo /usr/local/bin/docker-compose up -d

@@ -20,7 +20,7 @@ public class MessageController {
     }
 
     @GetMapping
-    public ResponseEntity<MessageResponses> sendMessage() throws JsonProcessingException {
+    public ResponseEntity<MessageResponses> receiveMessages() throws JsonProcessingException {
         return ResponseEntity.ok(messageService.receiveMessages());
     }
 }

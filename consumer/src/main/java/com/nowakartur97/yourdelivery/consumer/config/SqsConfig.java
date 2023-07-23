@@ -39,6 +39,16 @@ public class SqsConfig {
     @Bean
     @ConditionalOnProperty(name="spring.profiles.active", havingValue="local-aws")
     public SqsClient localAwsSqsClient() {
+        return createDefaultAwsSqsClient();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name="spring.profiles.active", havingValue="default")
+    public SqsClient awsSqsClient() {
+        return createDefaultAwsSqsClient();
+    }
+
+    private SqsClient createDefaultAwsSqsClient() {
         return SqsClient.builder()
                 .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
