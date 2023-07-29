@@ -29,6 +29,18 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Name of an EC2 KeyPair to enable SSH access to the instance
     Default: your-delivery
+  SshPort:
+    Type: Number
+    Description: Bastion Host SSH port
+    Default: 22
+    MinValue: 22
+    MaxValue: 65535
+  SourceCidr:
+    Type: String
+    Description: CIDR Block of IPv4 IP addresses allowed to access Bastion Host via SSH
+    AllowedPattern: "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/([0-9]|[1-2][0-9]|3[0-2]))?$"
+    ConstraintDescription: The value must be valid IPv4 CIDR block.
+    Default: 0.0.0.0/32
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
@@ -116,56 +128,91 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
-  RouteTableBackend:
+  BackendRouteTable:
     Type: "AWS::EC2::RouteTable"
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: your-delivery-rt-app
-  RouteTableBackendDefaultIPv4:
+          Value: your-delivery-rt-backend
+  BackendRouteTableDefaultIPv4:
     Type: "AWS::EC2::Route"
     DependsOn: InternetGatewayAttachment
     Properties:
-      RouteTableId:
-        Ref: RouteTableBackend
-      DestinationCidrBlock: "0.0.0.0/0"
-      GatewayId:
-        Ref: InternetGateway
-  RouteTableAssociationApp:
+      RouteTableId: !Ref BackendRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  BackendRouteTableAssociation:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      SubnetId: !Ref SubnetBackend
-      RouteTableId:
-        Ref: RouteTableBackend
-  SubnetBackend:
+      SubnetId: !Ref BackendSubnet
+      RouteTableId: !Ref BackendRouteTable
+  BackendSubnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.16.0.0/27
-      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: your-delivery-sn-backend
-  SecurityGroup:
+  BastionHostRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: your-delivery-rt-bastion-host
+  BastionHostRouteTableDefaultIPv4:
+    Type: "AWS::EC2::Route"
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref BastionHostRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  BastionHostRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref BastionHostSubnet
+      RouteTableId: !Ref BastionHostRouteTable
+  BastionHostSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.16.0.32/27
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: your-delivery-sn-bastion-host
+  BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: A Security Group for Your Delivery VPC
+      GroupDescription: A Security Group for Backend
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/32
-          FromPort: 22
-          ToPort: 22
+        - SourceSecurityGroupId: !Ref BastionHostSecurityGroup
+          FromPort: !Ref SshPort
+          ToPort: !Ref SshPort
+          IpProtocol: tcp
+  BastionHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: A Security Group for Bastion Host
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: !Ref SourceCidr
+          FromPort: !Ref SshPort
+          ToPort: !Ref SshPort
           IpProtocol: tcp
   ProducerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref SubnetBackend
+      SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref BackendSecurityGroup
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -205,9 +252,9 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref SubnetBackend
+      SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref BackendSecurityGroup
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -247,9 +294,9 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref SubnetBackend
+      SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref BackendSecurityGroup
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -289,9 +336,9 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref SubnetBackend
+      SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref BackendSecurityGroup
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -326,3 +373,15 @@ Resources:
           " > docker-compose.yaml
           sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
           sudo /usr/local/bin/docker-compose up -d
+  BastionHostEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref BastionHostSubnet
+      SecurityGroupIds:
+        - !Ref BastionHostSecurityGroup
+      KeyName: !Ref KeyPairName
+      Tags:
+        - Key: Name
+          Value: bastion-host-ec2
