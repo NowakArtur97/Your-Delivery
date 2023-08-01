@@ -153,6 +153,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
       CidrBlock: 10.16.0.0/27
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: your-delivery-sn-backend
