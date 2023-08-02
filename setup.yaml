@@ -382,7 +382,37 @@ Resources:
       SubnetId: !Ref BastionHostSubnet
       SecurityGroupIds:
         - !Ref BastionHostSecurityGroup
+      IamInstanceProfile: !Ref SecretManagerInstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
           Value: bastion-host-ec2
+  SecretManagerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: yd-secret-manager-instance-profile
+      Path: /
+      Roles:
+        - !Ref SecretManagerEC2InstanceRole
+  SecretManagerEC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: SecretManagerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
