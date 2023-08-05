@@ -391,6 +391,18 @@ Resources:
       Tags:
         - Key: Name
           Value: bastion-host-ec2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          cd /home/ec2-user
+          mkdir your-delivery-ssh
+          cd your-delivery-ssh
+          PEM_KEY_SECRET_NAME=${PemKeySecretName}
+          aws secretsmanager get-secret-value --secret-id $PEM_KEY_SECRET_NAME --query 'SecretString' --output text > your-delivery.pem
+          echo 'if [ -z "$SSH_AUTH_SOCK" ] ; then
+            eval `ssh-agent -s`
+            ssh-add /home/ec2-user/your-delivery-ssh/your-delivery.pem
+          fi' >> /home/ec2-user/.bashrc
   SecretManagerInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
