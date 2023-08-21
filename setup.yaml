@@ -528,3 +528,11 @@ Resources:
             eval `ssh-agent -s`
             ssh-add /home/ec2-user/your-delivery-ssh/your-delivery.pem
           fi' >> /home/ec2-user/.bashrc
+Outputs:
+  BastionHostPublicIp:
+    Description: Bastion Host EC2 instance public IP
+    Value: !GetAtt BastionHostEC2Instance.PublicIp
+  ProducerPrivateIp:
+    Description: Producer EC2 instance public IP
+    Value: !GetAtt ProducerEC2Instance.PrivateIp
+# TODO: Add the rest
