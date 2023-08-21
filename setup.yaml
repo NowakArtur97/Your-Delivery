@@ -161,14 +161,14 @@ Resources:
       Tags:
         - Key: Name
           Value: your-delivery-sn-backend
-  CloudWatchInstanceProfile:
+  BackendInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: yd-cloud-watch-instance-profile
       Path: /
       Roles:
-        - !Ref CloudWatchEC2InstanceRole
-  CloudWatchEC2InstanceRole:
+        - !Ref BackendEC2InstanceRole
+  BackendEC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -182,22 +182,79 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: DeliverToCloudWatchLogPolicy
+        - PolicyName: CloudWatchLogDeliveryPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
-                  - logs:CreateLogDelivery
-                  - logs:GetLogDelivery
-                  - logs:UpdateLogDelivery
-                  - logs:DeleteLogDelivery
-                  - logs:ListLogDeliveries
-                  - logs:PutLogEvents
-                  - logs:PutResourcePolicy
-                  - logs:DescribeResourcePolicies
-                  - logs:DescribeLogGroups
+                  - logs:*
                 Resource: "*" # TODO: Specify resource
+        - PolicyName: ParameterStoreAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:*
+                  # - ssm:GetParameter*
+                  # - ssm:PutParameter
+                Resource: "*" # TODO: Specify resource
+        - PolicyName: PutMetricAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:ListMetrics
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:SetAlarmState
+                Resource: "*" # TODO: Specify resource
+        - PolicyName: DescribeEC2AccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeTags
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeInstanceStatus
+                Resource: "*" # TODO: Specify resource
+        - PolicyName: DirectoryServiceAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ds:CreateComputer
+                  - ds:DescribeDirectories
+                Resource: "*" # TODO: Specify resource
+        - PolicyName: AmazonMessageDeliveryServiceAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2messages:*
+                Resource: "*" # TODO: Specify resource
+        - PolicyName: IAMAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:*
+                Resource: "*"
+        - PolicyName: SSMAgentAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssmmessages:*
+                Resource: "*"
   ProducerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -206,7 +263,7 @@ Resources:
       SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
-      IamInstanceProfile: !Ref CloudWatchInstanceProfile
+      IamInstanceProfile: !Ref BackendInstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -241,6 +298,7 @@ Resources:
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
   NotificationQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -437,7 +495,7 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: SecretManagerPolicy
+        - PolicyName: SecretManagerAccessPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
