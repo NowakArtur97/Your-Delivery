@@ -45,6 +45,10 @@ Parameters:
     AllowedPattern: "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/([0-9]|[1-2][0-9]|3[0-2]))?$"
     ConstraintDescription: The value must be valid IPv4 CIDR block.
     Default: 0.0.0.0/32
+  ParameterStoreCloudwatchConfigParameterName:
+    Type: String
+    Description: Name of the parameter with Cloudwatch config
+    Default: AmazonCloudWatch-linux
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
@@ -299,6 +303,7 @@ Resources:
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
           yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   NotificationQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -307,6 +312,7 @@ Resources:
       SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
+      IamInstanceProfile: !Ref BackendInstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -341,6 +347,8 @@ Resources:
           " > docker-compose.yaml
           sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   InventoryQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -349,6 +357,7 @@ Resources:
       SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
+      IamInstanceProfile: !Ref BackendInstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -383,6 +392,8 @@ Resources:
           " > docker-compose.yaml
           sed "s/SQS_INVENTORY_QUEUE_URL/$SQS_INVENTORY_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   ShipmentQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -391,6 +402,7 @@ Resources:
       SubnetId: !Ref BackendSubnet
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
+      IamInstanceProfile: !Ref BackendInstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -425,6 +437,8 @@ Resources:
           " > docker-compose.yaml
           sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   BastionHostRouteTable:
     Type: "AWS::EC2::RouteTable"
     Properties:

@@ -5,7 +5,3 @@ curl -X POST -H "Content-Type: application/json" -d '{"type": "SHIPMENT"}' http:
 curl -X GET http://localhost:8095/api/v1/messages
 
 ssh ec2-user@<EC2_INSTANCE_PRIVATE_IP>
-ssh ec2-user@10.16.0.4
-ssh ec2-user@10.16.0.14
-ssh ec2-user@10.16.0.27
-ssh ec2-user@10.16.0.23
