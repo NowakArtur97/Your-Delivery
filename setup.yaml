@@ -186,36 +186,26 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: CloudWatchLogDeliveryPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:*
-                Resource: "*" # TODO: Specify resource
         - PolicyName: ParameterStoreAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:*
-                  # - ssm:GetParameter*
-                  # - ssm:PutParameter
-                Resource: "*" # TODO: Specify resource
-        - PolicyName: PutMetricAccessPolicy
+                  - ssm:GetParameter
+                Resource: !Join
+                  - ""
+                  - - "arn:aws:ssm:*:*:parameter/"
+                    - !Ref ParameterStoreCloudwatchConfigParameterName
+                    - ""
+        - PolicyName: PutMetricsAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
                   - cloudwatch:PutMetricData
-                  - cloudwatch:PutMetricAlarm
-                  - cloudwatch:ListMetrics
-                  - cloudwatch:GetMetricStatistics
-                  - cloudwatch:SetAlarmState
-                Resource: "*" # TODO: Specify resource
+                Resource: "*"
         - PolicyName: DescribeEC2AccessPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -223,41 +213,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ec2:DescribeTags
-                  - ec2:DescribeVolumes
                   - ec2:DescribeInstanceStatus
-                Resource: "*" # TODO: Specify resource
-        - PolicyName: DirectoryServiceAccessPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ds:CreateComputer
-                  - ds:DescribeDirectories
-                Resource: "*" # TODO: Specify resource
-        - PolicyName: AmazonMessageDeliveryServiceAccessPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ec2messages:*
-                Resource: "*" # TODO: Specify resource
-        - PolicyName: IAMAccessPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - iam:*
-                Resource: "*"
-        - PolicyName: SSMAgentAccessPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssmmessages:*
                 Resource: "*"
   ProducerEC2Instance:
     Type: AWS::EC2::Instance

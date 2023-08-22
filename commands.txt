@@ -1,7 +1,10 @@
+Send message to Producer
 curl -X POST -H "Content-Type: application/json" -d '{"type": "NOTIFICATION"}' http://localhost:8090/api/v1/messages
 curl -X POST -H "Content-Type: application/json" -d '{"type": "INVENTORY"}' http://localhost:8090/api/v1/messages
 curl -X POST -H "Content-Type: application/json" -d '{"type": "SHIPMENT"}' http://localhost:8090/api/v1/messages
 
+Read messages from Consumer
 curl -X GET http://localhost:8095/api/v1/messages
 
+Enter EC2 instance
 ssh ec2-user@<EC2_INSTANCE_PRIVATE_IP>
