@@ -546,7 +546,15 @@ Outputs:
   BastionHostPublicIp:
     Description: Bastion Host EC2 instance public IP
     Value: !GetAtt BastionHostEC2Instance.PublicIp
-  ProducerPrivateIp:
-    Description: Producer EC2 instance public IP
-    Value: !GetAtt ProducerEC2Instance.PrivateIp
-# TODO: Add the rest
+  ProducerSSHConnectionCommand:
+    Description: Command to connect to Producer EC2 instance using SSH
+    Value: !Sub ssh ec2-user@${ProducerEC2Instance.PrivateIp}
+  NotificationQueueConsumerSSHConnectionCommand:
+    Description: Command to connect to Notification Queue Consumer EC2 instance using SSH
+    Value: !Sub ssh ec2-user@${NotificationQueueConsumerEC2Instance.PrivateIp}
+  InventoryQueueConsumerSSHConnectionCommand:
+    Description: Command to connect to Inventory Queue Consumer EC2 instance using SSH
+    Value: !Sub ssh ec2-user@${InventoryQueueConsumerEC2Instance.PrivateIp}
+  ShipmentQueueConsumerSSHConnectionCommand:
+    Description: Command to connect to Shipment Queue Consumer EC2 instance using SSH
+    Value: !Sub ssh ec2-user@${ShipmentQueueConsumerEC2Instance.PrivateIp}
