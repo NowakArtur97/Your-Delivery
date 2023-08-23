@@ -193,13 +193,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - sns:Publish
-                Resource:
-                  - !Join [
-                      "",
-                      [
-                        !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}",
-                      ],
-                    ]
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}"
         - PolicyName: SQSAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -207,12 +201,24 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
                 Resource:
                   - !Join [
                       "",
                       [
-                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:/",
-                        "*",
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${NotificationQueueName}",
+                      ],
+                    ]
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${InventoryQueueName}",
+                      ],
+                    ]
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ShipmentQueueName}",
                       ],
                     ]
         - PolicyName: ParameterStoreAccessPolicy
@@ -222,11 +228,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
-                Resource: !Join
-                  - ""
-                  - - "arn:aws:ssm:*:*:parameter/"
-                    - !Ref ParameterStoreCloudwatchConfigParameterName
-                    - ""
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterStoreCloudwatchConfigParameterName}"
         - PolicyName: PutMetricsAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -281,8 +283,6 @@ Resources:
               environment:
                 - SPRING_ACTIVE_PROFILE=default
                 - TOPIC_ARN=$SNS_TOPIC_ARN
-                - ACCESS_KEY=ACCESS_KEY
-                - SECRET_ACCESS_KEY=SECRET_ACCESS_KEY
               container_name: producer
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
@@ -326,8 +326,6 @@ Resources:
               environment:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_NOTIFICATION_QUEUE_URL
-                - ACCESS_KEY=ACCESS_KEY
-                - SECRET_ACCESS_KEY=SECRET_ACCESS_KEY
               container_name: consumer
           " > docker-compose.yaml
           sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
@@ -371,8 +369,6 @@ Resources:
               environment:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_INVENTORY_QUEUE_URL
-                - ACCESS_KEY=ACCESS_KEY
-                - SECRET_ACCESS_KEY=SECRET_ACCESS_KEY
               container_name: consumer
           " > docker-compose.yaml
           sed "s/SQS_INVENTORY_QUEUE_URL/$SQS_INVENTORY_QUEUE_URL/g" -i docker-compose.yaml
@@ -416,8 +412,6 @@ Resources:
               environment:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
-                - ACCESS_KEY=ACCESS_KEY
-                - SECRET_ACCESS_KEY=SECRET_ACCESS_KEY
               container_name: consumer
           " > docker-compose.yaml
           sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
@@ -479,8 +473,8 @@ Resources:
       InstanceProfileName: yd-secret-manager-instance-profile
       Path: /
       Roles:
-        - !Ref SecretManagerEC2InstanceRole
-  SecretManagerEC2InstanceRole:
+        - !Ref BastionEC2InstanceRole
+  BastionEC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -501,7 +495,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "*" # TODO: Specify resource
+                Resource: "*"
   BastionHostEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
