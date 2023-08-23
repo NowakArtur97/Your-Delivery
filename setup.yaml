@@ -186,6 +186,20 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
+        - PolicyName: SNSAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}",
+                      ],
+                    ]
         - PolicyName: ParameterStoreAccessPolicy
           PolicyDocument:
             Version: 2012-10-17

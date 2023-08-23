@@ -51,7 +51,6 @@ public class SnsConfiguration {
     private SnsClient createDefaultSnsClient() {
         return SnsClient.builder()
                 .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
                 .build();
     }
 }
