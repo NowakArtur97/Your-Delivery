@@ -33,6 +33,10 @@ Parameters:
     Type: String
     Description: Name of the secret containing pem key
     Default: your-delivery-pem-key
+  PemKeySecretNameArnSuffix:
+    Type: String
+    Description: Arn suffix of the secret containing pem key
+    Default: NZG9Hd
   SshPort:
     Type: Number
     Description: Bastion Host SSH port
@@ -495,7 +499,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "*"
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${PemKeySecretName}-${PemKeySecretNameArnSuffix}"
   BastionHostEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
