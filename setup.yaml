@@ -200,6 +200,21 @@ Resources:
                         !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}",
                       ],
                     ]
+        - PolicyName: SQSAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                Resource:
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:/",
+                        "*",
+                      ],
+                    ]
         - PolicyName: ParameterStoreAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
