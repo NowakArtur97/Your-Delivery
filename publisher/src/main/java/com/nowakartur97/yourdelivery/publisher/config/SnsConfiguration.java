@@ -27,7 +27,7 @@ public class SnsConfiguration {
     private String endpoint;
 
     @Bean
-    @ConditionalOnProperty(name="spring.profiles.active", havingValue="docker")
+    @ConditionalOnProperty(name = "spring.profiles.active", havingValue = "docker")
     public SnsClient dockerSnsClient() {
         return SnsClient.builder()
                 .region(Region.of(region))
@@ -37,18 +37,17 @@ public class SnsConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name="spring.profiles.active", havingValue="local-aws")
+    @ConditionalOnProperty(name = "spring.profiles.active", havingValue = "local-aws")
     public SnsClient localAwsSnsClient() {
-        return createDefaultSnsClient();
+        return SnsClient.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
+                .build();
     }
 
     @Bean
-    @ConditionalOnProperty(name="spring.profiles.active", havingValue="default")
+    @ConditionalOnProperty(name = "spring.profiles.active", havingValue = "default")
     public SnsClient awsSnsClient() {
-        return createDefaultSnsClient();
-    }
-
-    private SnsClient createDefaultSnsClient() {
         return SnsClient.builder()
                 .region(Region.of(region))
                 .build();

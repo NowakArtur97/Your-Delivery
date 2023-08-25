@@ -1,7 +1,11 @@
+logging:
+  file:
+    path: ./logs
+    name: ./logs/producer.log
+
 your-delivery:
   aws:
-    access-key: ACCESS_KEY
-    secret-key: SECRET_ACCESS_KEY
-    region: eu-central-1
+    access-key: ACCESS_KEY # Change to your AWS credentials
+    secret-key: SECRET_ACCESS_KEY # Change to your AWS credentials
     sns:
-      topic-arn: TOPIC_ARN
+      topic-arn: TOPIC_ARN # Change to your AWS topic ARN
