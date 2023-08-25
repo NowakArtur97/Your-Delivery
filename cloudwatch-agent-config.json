@@ -1,7 +1,27 @@
 {
   "agent": {
-    "metrics_collection_interval": 10,
+    "metrics_collection_interval": 30,
     "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/home/ec2-user/logs/producer.log",
+            "log_group_name": "/home/ec2-user/logs/producer.log",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 7
+          },
+          {
+            "file_path": "/home/ec2-user/logs/consumer.log",
+            "log_group_name": "/home/ec2-user/logs/consumer.log",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 7
+          }
+        ]
+      }
+    }
   },
   "metrics": {
     "aggregation_dimensions": [["InstanceId"]],
@@ -19,13 +39,13 @@
           "cpu_usage_user",
           "cpu_usage_system"
         ],
-        "metrics_collection_interval": 10,
+        "metrics_collection_interval": 30,
         "resources": ["*"],
         "totalcpu": false
       },
       "disk": {
         "measurement": ["used_percent", "inodes_free"],
-        "metrics_collection_interval": 10,
+        "metrics_collection_interval": 30,
         "resources": ["*"]
       },
       "diskio": {
@@ -36,25 +56,25 @@
           "writes",
           "reads"
         ],
-        "metrics_collection_interval": 10,
+        "metrics_collection_interval": 30,
         "resources": ["*"]
       },
       "mem": {
         "measurement": ["mem_used_percent"],
-        "metrics_collection_interval": 10
+        "metrics_collection_interval": 30
       },
       "netstat": {
         "measurement": ["tcp_established", "tcp_time_wait"],
-        "metrics_collection_interval": 10
+        "metrics_collection_interval": 30
       },
       "statsd": {
-        "metrics_aggregation_interval": 10,
+        "metrics_aggregation_interval": 30,
         "metrics_collection_interval": 10,
         "service_address": ":8125"
       },
       "swap": {
         "measurement": ["swap_used_percent"],
-        "metrics_collection_interval": 10
+        "metrics_collection_interval": 30
       }
     }
   }

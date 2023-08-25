@@ -225,6 +225,18 @@ Resources:
                         !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ShipmentQueueName}",
                       ],
                     ]
+        - PolicyName: CloudWatchLogDeliveryPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:CreateLogGroup
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
+                Resource: "*"
         - PolicyName: ParameterStoreAccessPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -232,6 +244,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
+                  - ssm:PutParameter # TODO: Create config in user data
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterStoreCloudwatchConfigParameterName}"
         - PolicyName: PutMetricsAccessPolicy
           PolicyDocument:
@@ -274,6 +287,7 @@ Resources:
           curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
           cd /home/ec2-user
+          mkdir logs
           mkdir your-delivery-producer
           cd your-delivery-producer
           SNS_TOPIC_ARN=${SNSTopic}
@@ -288,6 +302,8 @@ Resources:
                 - SPRING_ACTIVE_PROFILE=default
                 - TOPIC_ARN=$SNS_TOPIC_ARN
               container_name: producer
+              volumes:
+                - /home/ec2-user/logs:/home/logs
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d

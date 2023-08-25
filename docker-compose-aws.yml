@@ -8,6 +8,8 @@ services:
     ports:
       - 8090:8090
     container_name: publisher
+    volumes:
+      - /home/ec2-user/logs:/home/logs
 
   consumer:
     restart: on-failure
@@ -16,3 +18,5 @@ services:
     ports:
       - 8095:8095
     container_name: consumer
+    volumes:
+      - /home/ec2-user/logs:/home/logs
