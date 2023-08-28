@@ -5,6 +5,11 @@ spring:
 server:
   port: ${SERVER_PORT:8095}
 
+logging:
+  file:
+    path: ${LOG_FILE_PATH:/home/your-delivery-consumer}
+    name: ${LOG_FILE_NAME:/home/your-delivery-consumer/consumer.log}
+
 your-delivery:
   aws:
     access-key: ${ACCESS_KEY:ACCESS_KEY}

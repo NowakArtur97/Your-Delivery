@@ -1,3 +1,8 @@
+logging:
+  file:
+    path: ./logs
+    name: ./logs/consumer.log
+
 your-delivery:
   aws:
     access-key: ACCESS_KEY

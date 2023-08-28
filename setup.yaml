@@ -287,7 +287,6 @@ Resources:
           curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
           cd /home/ec2-user
-          mkdir logs
           mkdir your-delivery-producer
           cd your-delivery-producer
           SNS_TOPIC_ARN=${SNSTopic}
@@ -303,7 +302,7 @@ Resources:
                 - TOPIC_ARN=$SNS_TOPIC_ARN
               container_name: producer
               volumes:
-                - /home/ec2-user/logs:/home/logs
+                - /home/ec2-user/your-delivery-producer:/home/your-delivery-producer
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
@@ -347,6 +346,8 @@ Resources:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_NOTIFICATION_QUEUE_URL
               container_name: consumer
+              volumes:
+                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
           " > docker-compose.yaml
           sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
@@ -390,6 +391,8 @@ Resources:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_INVENTORY_QUEUE_URL
               container_name: consumer
+              volumes:
+                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
           " > docker-compose.yaml
           sed "s/SQS_INVENTORY_QUEUE_URL/$SQS_INVENTORY_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
@@ -433,6 +436,8 @@ Resources:
                 - SPRING_ACTIVE_PROFILE=default
                 - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
               container_name: consumer
+              volumes:
+                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
           " > docker-compose.yaml
           sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d

@@ -7,8 +7,8 @@ server:
 
 logging:
   file:
-    path: ${LOG_FILE_PATH:/home/logs}
-    name: ${LOG_FILE_NAME:/home/logs/producer.log}
+    path: ${LOG_FILE_PATH:/home/your-delivery-producer}
+    name: ${LOG_FILE_NAME:/home/your-delivery-producer/producer.log}
 
 your-delivery:
   aws:
