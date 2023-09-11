@@ -131,6 +131,28 @@ Resources:
       Tags:
         - Key: Name
           Value: your-delivery-vpc
+  SNSVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sns"
+      VpcId: !Ref VPC
+      SubnetIds:
+        - !Ref BackendSubnet
+      SecurityGroupIds:
+        - !Ref BackendSecurityGroup
+      PrivateDnsEnabled: true
+  SQSVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
+      VpcId: !Ref VPC
+      SubnetIds:
+        - !Ref BackendSubnet
+      SecurityGroupIds:
+        - !Ref BackendSecurityGroup
+      PrivateDnsEnabled: true
   IPv6CidrBlock:
     Type: AWS::EC2::VPCCidrBlock
     Properties:
