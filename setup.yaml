@@ -299,14 +299,12 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install java-openjdk11 -y
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
           yum install python-pip -y
           yum remove python-requests -y
           pip install docker-compose
-          chmod +x /usr/local/bin/docker-compose
           chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-producer
@@ -327,7 +325,9 @@ Resources:
                 - /home/ec2-user/your-delivery-producer:/home/your-delivery-producer
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
-          /usr/local/bin/docker-compose up -d
+          docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   NotificationQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -345,14 +345,12 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install java-openjdk11 -y
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
           yum install python-pip -y
           yum remove python-requests -y
           pip install docker-compose
-          chmod +x /usr/local/bin/docker-compose
           chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-consumer
@@ -373,7 +371,7 @@ Resources:
                 - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
           " > docker-compose.yaml
           sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
-          /usr/local/bin/docker-compose up -d
+          docker-compose up -d
           yum -y install amazon-cloudwatch-agent
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   InventoryQueueConsumerEC2Instance:
@@ -393,14 +391,12 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install java-openjdk11 -y
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
           yum install python-pip -y
           yum remove python-requests -y
           pip install docker-compose
-          chmod +x /usr/local/bin/docker-compose
           chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-consumer
@@ -421,57 +417,55 @@ Resources:
                 - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
           " > docker-compose.yaml
           sed "s/SQS_INVENTORY_QUEUE_URL/$SQS_INVENTORY_QUEUE_URL/g" -i docker-compose.yaml
-          /usr/local/bin/docker-compose up -d
+          docker-compose up -d
           yum -y install amazon-cloudwatch-agent
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   ShipmentQueueConsumerEC2Instance:
-    Type: AWS::EC2::Instance
-    Properties:
-      ImageId: !Ref ImageId
-      InstanceType: !Ref InstanceType
-      SubnetId: !Ref BackendSubnet
-      SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      IamInstanceProfile: !Ref BackendInstanceProfile
-      KeyName: !Ref KeyPairName
-      Tags:
-        - Key: Name
-          Value: shipment-queue-consumer-ec2
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum update -y
-          amazon-linux-extras install java-openjdk11 -y
-          yum install docker -y
-          service docker start
-          usermod -a -G docker ec2-user
-          yum install python-pip -y
-          yum remove python-requests -y
-          pip install docker-compose
-          chmod +x /usr/local/bin/docker-compose
-          chmod 777 /var/run/docker.sock
-          cd /home/ec2-user
-          mkdir your-delivery-consumer
-          cd your-delivery-consumer
-          export SQS_SHIPMENT_QUEUE_URL="${ShipmentQueue}"
-          echo "version: '3.7'
-          services:
-            your-delivery-consumer:
-              restart: on-failure
-              image: jooki997/your-delivery-consumer:1.0.0
-              ports:
-                - 8095:8095
-              environment:
-                - SPRING_ACTIVE_PROFILE=default
-                - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
-              container_name: consumer
-              volumes:
-                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
-          " > docker-compose.yaml
-          sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
-          /usr/local/bin/docker-compose up -d
-          yum -y install amazon-cloudwatch-agent
-          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+  Type: AWS::EC2::Instance
+  Properties:
+    ImageId: !Ref ImageId
+    InstanceType: !Ref InstanceType
+    SubnetId: !Ref BackendSubnet
+    SecurityGroupIds:
+      - !Ref BackendSecurityGroup
+    IamInstanceProfile: !Ref BackendInstanceProfile
+    KeyName: !Ref KeyPairName
+    Tags:
+      - Key: Name
+        Value: shipment-queue-consumer-ec2
+    UserData:
+      Fn::Base64: !Sub |
+        #!/bin/bash
+        yum update -y
+        yum install docker -y
+        service docker start
+        usermod -a -G docker ec2-user
+        yum install python-pip -y
+        yum remove python-requests -y
+        pip install docker-compose
+        chmod 777 /var/run/docker.sock
+        cd /home/ec2-user
+        mkdir your-delivery-consumer
+        cd your-delivery-consumer
+        export SQS_SHIPMENT_QUEUE_URL="${ShipmentQueue}"
+        echo "version: '3.7'
+        services:
+          your-delivery-consumer:
+            restart: on-failure
+            image: jooki997/your-delivery-consumer:1.0.0
+            ports:
+              - 8095:8095
+            environment:
+              - SPRING_ACTIVE_PROFILE=default
+              - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
+            container_name: consumer
+            volumes:
+              - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
+        " > docker-compose.yaml
+        sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
+        docker-compose up -d
+        yum -y install amazon-cloudwatch-agent
+        sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   ############################ Bastion Host ############################
   InternetGateway:
     Type: AWS::EC2::InternetGateway
