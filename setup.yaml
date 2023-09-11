@@ -54,6 +54,7 @@ Parameters:
     Description: Name of the parameter with Cloudwatch config
     Default: AmazonCloudWatch-linux
 Resources:
+  ############################ SNS | SQS ############################
   SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -120,55 +121,73 @@ Resources:
             Condition:
               ArnEquals:
                 aws:SourceArn: !Ref SNSTopic
+  ############################ Backend ############################
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.16.0.0/24
+      CidrBlock: 10.16.0.0/16
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: your-delivery-vpc
-  InternetGateway:
-    Type: "AWS::EC2::InternetGateway"
-    Properties:
-      Tags:
-        - Key: Name
-          Value: your-delivery-igw
-  InternetGatewayAttachment:
-    Type: "AWS::EC2::VPCGatewayAttachment"
+  IPv6CidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
     Properties:
       VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
+      AmazonProvidedIpv6CidrBlock: true
+  EgressOnlyInternetGateway:
+    Type: AWS::EC2::EgressOnlyInternetGateway
+    Properties:
+      VpcId: !Ref VPC
   BackendRouteTable:
-    Type: "AWS::EC2::RouteTable"
+    Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: your-delivery-rt-backend
-  BackendRouteTableDefaultIPv4:
-    Type: "AWS::EC2::Route"
-    DependsOn: InternetGatewayAttachment
+  BackendRouteTableDefaultIPv6:
+    Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref BackendRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      DestinationIpv6CidrBlock: "::/0"
+      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
   BackendRouteTableAssociation:
-    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref BackendSubnet
       RouteTableId: !Ref BackendRouteTable
   BackendSubnet:
     Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.16.0.0/27
-      MapPublicIpOnLaunch: true
+      CidrBlock: 10.16.0.0/20
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock:
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: "00::/64"
+            VpcPart:
+              !Select [
+                0,
+                !Split ["00::/56", !Select [0, !GetAtt VPC.Ipv6CidrBlocks]],
+              ]
       Tags:
         - Key: Name
           Value: your-delivery-sn-backend
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: A Security Group for Backend
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref BastionHostSecurityGroup
+          FromPort: !Ref SshPort
+          ToPort: !Ref SshPort
+          IpProtocol: tcp
   BackendInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -284,8 +303,11 @@ Resources:
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
-          curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
           chmod +x /usr/local/bin/docker-compose
+          chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-producer
           cd your-delivery-producer
@@ -306,8 +328,6 @@ Resources:
           " > docker-compose.yaml
           sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
           /usr/local/bin/docker-compose up -d
-          yum -y install amazon-cloudwatch-agent
-          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   NotificationQueueConsumerEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -329,8 +349,11 @@ Resources:
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
-          curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
           chmod +x /usr/local/bin/docker-compose
+          chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-consumer
           cd your-delivery-consumer
@@ -374,8 +397,11 @@ Resources:
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
-          curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
           chmod +x /usr/local/bin/docker-compose
+          chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-consumer
           cd your-delivery-consumer
@@ -419,8 +445,11 @@ Resources:
           yum install docker -y
           service docker start
           usermod -a -G docker ec2-user
-          curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
           chmod +x /usr/local/bin/docker-compose
+          chmod 777 /var/run/docker.sock
           cd /home/ec2-user
           mkdir your-delivery-consumer
           cd your-delivery-consumer
@@ -443,22 +472,34 @@ Resources:
           /usr/local/bin/docker-compose up -d
           yum -y install amazon-cloudwatch-agent
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+  ############################ Bastion Host ############################
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: your-delivery-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
   BastionHostRouteTable:
-    Type: "AWS::EC2::RouteTable"
+    Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: your-delivery-rt-bastion-host
   BastionHostRouteTableDefaultIPv4:
-    Type: "AWS::EC2::Route"
+    Type: AWS::EC2::Route
     DependsOn: InternetGatewayAttachment
     Properties:
       RouteTableId: !Ref BastionHostRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
   BastionHostRouteTableAssociation:
-    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref BastionHostSubnet
       RouteTableId: !Ref BastionHostRouteTable
@@ -467,21 +508,11 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.16.0.32/27
-      MapPublicIpOnLaunch: true
+      CidrBlock: 10.16.64.0/20
+      MapPublicIpOnLaunch: true # TODO: Check if can be removed
       Tags:
         - Key: Name
           Value: your-delivery-sn-bastion-host
-  BackendSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: A Security Group for Backend
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - SourceSecurityGroupId: !Ref BastionHostSecurityGroup
-          FromPort: !Ref SshPort
-          ToPort: !Ref SshPort
-          IpProtocol: tcp
   BastionHostSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
