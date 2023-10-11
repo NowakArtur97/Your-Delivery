@@ -1,0 +1,466 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Your Delivery Template
+Parameters:
+  SNSTopicName:
+    Type: String
+    Description: Name of the SNS topic
+    Default: delivery
+  NotificationQueueName:
+    Type: String
+    Description: Name of the Notification Queue
+    Default: notification
+  InventoryQueueName:
+    Type: String
+    Description: Name of the Inventory Queue
+    Default: inventory
+  ShipmentQueueName:
+    Type: String
+    Description: Name of the Shipment Queue
+    Default: shipment
+  InstanceType:
+    Type: String
+    Description: EC2 instances size
+    Default: t2.micro
+  ImageId:
+    Type: String
+    Description: EC2 instances image id
+    Default: ami-07ce6ac5ac8a0ee6f
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an EC2 KeyPair to enable SSH access to the instance
+    Default: your-delivery
+  SshPort:
+    Type: Number
+    Description: Bastion Host SSH port
+    Default: 22
+    MinValue: 22
+    MaxValue: 65535
+  SourceCidr:
+    Type: String
+    Description: CIDR Block of IPv4 IP addresses allowed to access Bastion Host via SSH
+    AllowedPattern: "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/([0-9]|[1-2][0-9]|3[0-2]))?$"
+    ConstraintDescription: The value must be valid IPv4 CIDR block.
+    Default: 0.0.0.0/32
+  ParameterStoreCloudwatchConfigParameterName:
+    Type: String
+    Description: Name of the parameter with Cloudwatch config
+    Default: AmazonCloudWatch-linux
+Resources:
+  ############################ SNS | SQS ############################
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref SNSTopicName
+      TopicName: !Ref SNSTopicName
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref NotificationQueueName
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt NotificationQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - NOTIFICATION
+      FilterPolicyScope: MessageBody
+  InventoryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref InventoryQueueName
+  InventoryQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt InventoryQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - INVENTORY
+      FilterPolicyScope: MessageBody
+  ShipmentQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref ShipmentQueueName
+  ShipmentQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt ShipmentQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref SNSTopic
+      FilterPolicy:
+        type:
+          - SHIPMENT
+      FilterPolicyScope: MessageBody
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - Ref: NotificationQueue
+        - Ref: InventoryQueue
+        - Ref: ShipmentQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+            Resource: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SNSTopic
+  ############################ EC2 #############
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.16.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: your-delivery-vpc
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: your-delivery-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: your-delivery-rt
+  RouteTableDefaultIPv4:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.16.0.0/27
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: your-delivery-sn
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: A Security Group for EC2 instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: !Ref SourceCidr
+          FromPort: !Ref SshPort
+          ToPort: !Ref SshPort
+          IpProtocol: tcp
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: yd-cloud-watch-instance-profile
+      Path: /
+      Roles:
+        - !Ref EC2InstanceRole
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: SNSAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}"
+        - PolicyName: SQSAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                Resource:
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${NotificationQueueName}",
+                      ],
+                    ]
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${InventoryQueueName}",
+                      ],
+                    ]
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ShipmentQueueName}",
+                      ],
+                    ]
+        - PolicyName: CloudWatchLogDeliveryPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:CreateLogGroup
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
+                Resource: "*"
+        - PolicyName: ParameterStoreAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter # TODO: Create config in user data
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterStoreCloudwatchConfigParameterName}"
+        - PolicyName: PutMetricsAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+        - PolicyName: DescribeEC2AccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeTags
+                  - ec2:DescribeInstanceStatus
+                Resource: "*"
+  ProducerEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !Ref KeyPairName
+      Tags:
+        - Key: Name
+          Value: producer-ec2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install docker -y
+          service docker start
+          usermod -a -G docker ec2-user
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
+          chmod 777 /var/run/docker.sock
+          cd /home/ec2-user
+          mkdir your-delivery-producer
+          cd your-delivery-producer
+          SNS_TOPIC_ARN=${SNSTopic}
+          echo "version: '3.7'
+          services:
+            your-delivery-producer:
+              restart: on-failure
+              image: jooki997/your-delivery-producer:1.0.0
+              ports:
+                - 8090:8090
+              environment:
+                - SPRING_ACTIVE_PROFILE=default
+                - TOPIC_ARN=$SNS_TOPIC_ARN
+              container_name: producer
+              volumes:
+                - /home/ec2-user/your-delivery-producer:/home/your-delivery-producer
+          " > docker-compose.yaml
+          sed "s/SNS_TOPIC_ARN/$SNS_TOPIC_ARN/g" -i docker-compose.yaml
+          docker-compose up -d
+          # yum -y install amazon-cloudwatch-agent
+          # sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+  NotificationQueueConsumerEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !Ref KeyPairName
+      Tags:
+        - Key: Name
+          Value: notification-queue-consumer-ec2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install docker -y
+          service docker start
+          usermod -a -G docker ec2-user
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
+          chmod 777 /var/run/docker.sock
+          cd /home/ec2-user
+          mkdir your-delivery-consumer
+          cd your-delivery-consumer
+          export SQS_NOTIFICATION_QUEUE_URL="${NotificationQueue}"
+          echo "version: '3.7'
+          services:
+            your-delivery-consumer:
+              restart: on-failure
+              image: jooki997/your-delivery-consumer:1.0.0
+              ports:
+                - 8095:8095
+              environment:
+                - SPRING_ACTIVE_PROFILE=default
+                - QUEUE_URL=$SQS_NOTIFICATION_QUEUE_URL
+              container_name: consumer
+              volumes:
+                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
+          " > docker-compose.yaml
+          sed "s/SQS_NOTIFICATION_QUEUE_URL/$SQS_NOTIFICATION_QUEUE_URL/g" -i docker-compose.yaml
+          docker-compose up -d
+          # yum -y install amazon-cloudwatch-agent
+          # sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+  # InventoryQueueConsumerEC2Instance:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     ImageId: !Ref ImageId
+  #     InstanceType: !Ref InstanceType
+  #     SubnetId: !Ref Subnet
+  #     SecurityGroupIds:
+  #       - !Ref SecurityGroup
+  #     IamInstanceProfile: !Ref InstanceProfile
+  #     KeyName: !Ref KeyPairName
+  #     Tags:
+  #       - Key: Name
+  #         Value: inventory-queue-consumer-ec2
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         yum update -y
+  #         yum install docker -y
+  #         service docker start
+  #         usermod -a -G docker ec2-user
+  #         yum install python-pip -y
+  #         yum remove python-requests -y
+  #         pip install docker-compose
+  #         chmod 777 /var/run/docker.sock
+  #         cd /home/ec2-user
+  #         mkdir your-delivery-consumer
+  #         cd your-delivery-consumer
+  #         export SQS_INVENTORY_QUEUE_URL="${InventoryQueue}"
+  #         echo "version: '3.7'
+  #         services:
+  #           your-delivery-consumer:
+  #             restart: on-failure
+  #             image: jooki997/your-delivery-consumer:1.0.0
+  #             ports:
+  #               - 8095:8095
+  #             environment:
+  #               - SPRING_ACTIVE_PROFILE=default
+  #               - QUEUE_URL=$SQS_INVENTORY_QUEUE_URL
+  #             container_name: consumer
+  #             volumes:
+  #               - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
+  #         " > docker-compose.yaml
+  #         sed "s/SQS_INVENTORY_QUEUE_URL/$SQS_INVENTORY_QUEUE_URL/g" -i docker-compose.yaml
+  #         docker-compose up -d
+  #         yum -y install amazon-cloudwatch-agent
+  #         sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+  # ShipmentQueueConsumerEC2Instance:
+  # Type: AWS::EC2::Instance
+  # Properties:
+  #   ImageId: !Ref ImageId
+  #   InstanceType: !Ref InstanceType
+  #   SubnetId: !Ref Subnet
+  #   SecurityGroupIds:
+  #     - !Ref SecurityGroup
+  #   IamInstanceProfile: !Ref InstanceProfile
+  #   KeyName: !Ref KeyPairName
+  #   Tags:
+  #     - Key: Name
+  #       Value: shipment-queue-consumer-ec2
+  #   UserData:
+  #     Fn::Base64: !Sub |
+  #       #!/bin/bash
+  #       yum update -y
+  #       yum install docker -y
+  #       service docker start
+  #       usermod -a -G docker ec2-user
+  #       yum install python-pip -y
+  #       yum remove python-requests -y
+  #       pip install docker-compose
+  #       chmod 777 /var/run/docker.sock
+  #       cd /home/ec2-user
+  #       mkdir your-delivery-consumer
+  #       cd your-delivery-consumer
+  #       export SQS_SHIPMENT_QUEUE_URL="${ShipmentQueue}"
+  #       echo "version: '3.7'
+  #       services:
+  #         your-delivery-consumer:
+  #           restart: on-failure
+  #           image: jooki997/your-delivery-consumer:1.0.0
+  #           ports:
+  #             - 8095:8095
+  #           environment:
+  #             - SPRING_ACTIVE_PROFILE=default
+  #             - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
+  #           container_name: consumer
+  #           volumes:
+  #             - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
+  #       " > docker-compose.yaml
+  #       sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
+  #       docker-compose up -d
+  #       yum -y install amazon-cloudwatch-agent
+  #       sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
+Outputs:
+  ProducerSSHConnectionCommand:
+    Description: Producer EC2 instance public IP
+    Value: !GetAtt ProducerEC2Instance.PublicIp
+  NotificationQueueConsumerSSHConnectionCommand:
+    Description: Notification Consumer EC2 instance public IP
+    Value: !GetAtt NotificationQueueConsumerEC2Instance.PublicIp
+  # InventoryQueueConsumerSSHConnectionCommand:
+  #   Description: Command to connect to Inventory Queue Consumer EC2 instance using SSH
+  #   Value: !Sub ssh ec2-user@${InventoryQueueConsumerEC2Instance.PrivateIp}
+  # ShipmentQueueConsumerSSHConnectionCommand:
+  #   Description: Command to connect to Shipment Queue Consumer EC2 instance using SSH
+  #   Value: !Sub ssh ec2-user@${ShipmentQueueConsumerEC2Instance.PrivateIp}
