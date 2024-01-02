@@ -15,7 +15,7 @@ Fan-Out Serverless Architectures Using SNS, SQS and EC2 Instances built using Cl
 ## Features
 
 - Producing messages on SNS topic
-- Consuming messages from an SQS queues
+- Consuming messages from SQS queues
 - Separating messages by type from an SNS topic to SQS queues
 - Automatic configuration of Docker and Docker Compose on EC2 instances
 - Running Docker images on an EC2 instances
