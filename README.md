@@ -21,6 +21,8 @@ Fan-Out Serverless Architectures Using SNS, SQS and EC2 Instances built using Cl
 - Running Docker images on an EC2 instances
 - Automatic installation of the CloudWatch agent
 - Fetching configuration of CloudWatch agent from the Parameter Store
+- Saving aplication logs to a file
+- Reading logs from a file by CloudWatch agent
 
 ## Built With
 
