@@ -29,23 +29,15 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Name of an EC2 KeyPair to enable SSH access to the instance
     Default: your-delivery
-  PemKeySecretName:
-    Type: String
-    Description: Name of the secret containing pem key
-    Default: your-delivery-pem-key
-  PemKeySecretNameArnSuffix:
-    Type: String
-    Description: Arn suffix of the secret containing pem key
-    Default: NZG9Hd
   SshPort:
     Type: Number
-    Description: Bastion Host SSH port
+    Description: SSH port
     Default: 22
     MinValue: 22
     MaxValue: 65535
   SourceCidr:
     Type: String
-    Description: CIDR Block of IPv4 IP addresses allowed to access Bastion Host via SSH
+    Description: CIDR Block of IPv4 IP addresses allowed to access EC2 instances via SSH
     AllowedPattern: "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/([0-9]|[1-2][0-9]|3[0-2]))?$"
     ConstraintDescription: The value must be valid IPv4 CIDR block.
     Default: 0.0.0.0/32
@@ -121,7 +113,7 @@ Resources:
             Condition:
               ArnEquals:
                 aws:SourceArn: !Ref SNSTopic
-  ############################ Backend ############################
+  ############################ EC2 #############
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -131,93 +123,64 @@ Resources:
       Tags:
         - Key: Name
           Value: your-delivery-vpc
-  SNSVpcEndpoint:
-    Type: AWS::EC2::VPCEndpoint
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
     Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sns"
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref BackendSubnet
-      SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      PrivateDnsEnabled: true
-  SQSVpcEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref BackendSubnet
-      SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      PrivateDnsEnabled: true
-  IPv6CidrBlock:
-    Type: AWS::EC2::VPCCidrBlock
+      Tags:
+        - Key: Name
+          Value: your-delivery-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref VPC
-      AmazonProvidedIpv6CidrBlock: true
-  EgressOnlyInternetGateway:
-    Type: AWS::EC2::EgressOnlyInternetGateway
-    Properties:
-      VpcId: !Ref VPC
-  BackendRouteTable:
+      InternetGatewayId: !Ref InternetGateway
+  RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: your-delivery-rt-backend
-  BackendRouteTableDefaultIPv6:
+          Value: your-delivery-rt
+  RouteTableDefaultIPv4:
     Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
     Properties:
-      RouteTableId: !Ref BackendRouteTable
-      DestinationIpv6CidrBlock: "::/0"
-      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
-  BackendRouteTableAssociation:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref BackendSubnet
-      RouteTableId: !Ref BackendRouteTable
-  BackendSubnet:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+  Subnet:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.16.0.0/20
-      AssignIpv6AddressOnCreation: true
-      Ipv6CidrBlock:
-        Fn::Sub:
-          - "${VpcPart}${SubnetPart}"
-          - SubnetPart: "00::/64"
-            VpcPart:
-              !Select [
-                0,
-                !Split ["00::/56", !Select [0, !GetAtt VPC.Ipv6CidrBlocks]],
-              ]
+      CidrBlock: 10.16.0.0/27
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: your-delivery-sn-backend
-  BackendSecurityGroup:
+          Value: your-delivery-sn
+  SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: A Security Group for Backend
+      GroupDescription: A Security Group for EC2 instances
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - SourceSecurityGroupId: !Ref BastionHostSecurityGroup
+        - CidrIp: !Ref SourceCidr
           FromPort: !Ref SshPort
           ToPort: !Ref SshPort
           IpProtocol: tcp
-  BackendInstanceProfile:
+  InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: yd-cloud-watch-instance-profile
       Path: /
       Roles:
-        - !Ref BackendEC2InstanceRole
-  BackendEC2InstanceRole:
+        - !Ref EC2InstanceRole
+  EC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -285,7 +248,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
-                  - ssm:PutParameter # TODO: Create config in user data
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterStoreCloudwatchConfigParameterName}"
         - PolicyName: PutMetricsAccessPolicy
           PolicyDocument:
@@ -309,10 +271,10 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref BackendSubnet
+      SubnetId: !Ref Subnet
       SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      IamInstanceProfile: !Ref BackendInstanceProfile
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -355,10 +317,10 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref BackendSubnet
+      SubnetId: !Ref Subnet
       SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      IamInstanceProfile: !Ref BackendInstanceProfile
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -401,10 +363,10 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref BackendSubnet
+      SubnetId: !Ref Subnet
       SecurityGroupIds:
-        - !Ref BackendSecurityGroup
-      IamInstanceProfile: !Ref BackendInstanceProfile
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
@@ -443,169 +405,61 @@ Resources:
           yum -y install amazon-cloudwatch-agent
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
   ShipmentQueueConsumerEC2Instance:
-  Type: AWS::EC2::Instance
-  Properties:
-    ImageId: !Ref ImageId
-    InstanceType: !Ref InstanceType
-    SubnetId: !Ref BackendSubnet
-    SecurityGroupIds:
-      - !Ref BackendSecurityGroup
-    IamInstanceProfile: !Ref BackendInstanceProfile
-    KeyName: !Ref KeyPairName
-    Tags:
-      - Key: Name
-        Value: shipment-queue-consumer-ec2
-    UserData:
-      Fn::Base64: !Sub |
-        #!/bin/bash
-        yum update -y
-        yum install docker -y
-        service docker start
-        usermod -a -G docker ec2-user
-        yum install python-pip -y
-        yum remove python-requests -y
-        pip install docker-compose
-        chmod 777 /var/run/docker.sock
-        cd /home/ec2-user
-        mkdir your-delivery-consumer
-        cd your-delivery-consumer
-        export SQS_SHIPMENT_QUEUE_URL="${ShipmentQueue}"
-        echo "version: '3.7'
-        services:
-          your-delivery-consumer:
-            restart: on-failure
-            image: jooki997/your-delivery-consumer:1.0.0
-            ports:
-              - 8095:8095
-            environment:
-              - SPRING_ACTIVE_PROFILE=default
-              - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
-            container_name: consumer
-            volumes:
-              - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
-        " > docker-compose.yaml
-        sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
-        docker-compose up -d
-        yum -y install amazon-cloudwatch-agent
-        sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
-  ############################ Bastion Host ############################
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: your-delivery-igw
-  InternetGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-  BastionHostRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: your-delivery-rt-bastion-host
-  BastionHostRouteTableDefaultIPv4:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      RouteTableId: !Ref BastionHostRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-  BastionHostRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref BastionHostSubnet
-      RouteTableId: !Ref BastionHostRouteTable
-  BastionHostSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: 10.16.64.0/20
-      MapPublicIpOnLaunch: true # TODO: Check if can be removed
-      Tags:
-        - Key: Name
-          Value: your-delivery-sn-bastion-host
-  BastionHostSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: A Security Group for Bastion Host
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - CidrIp: !Ref SourceCidr
-          FromPort: !Ref SshPort
-          ToPort: !Ref SshPort
-          IpProtocol: tcp
-  SecretManagerInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: yd-secret-manager-instance-profile
-      Path: /
-      Roles:
-        - !Ref BastionEC2InstanceRole
-  BastionEC2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - ec2.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Path: "/"
-      Policies:
-        - PolicyName: SecretManagerAccessPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${PemKeySecretName}-${PemKeySecretNameArnSuffix}"
-  BastionHostEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref BastionHostSubnet
+      SubnetId: !Ref Subnet
       SecurityGroupIds:
-        - !Ref BastionHostSecurityGroup
-      IamInstanceProfile: !Ref SecretManagerInstanceProfile
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref KeyPairName
       Tags:
         - Key: Name
-          Value: bastion-host-ec2
+          Value: shipment-queue-consumer-ec2
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
+          yum update -y
+          yum install docker -y
+          service docker start
+          usermod -a -G docker ec2-user
+          yum install python-pip -y
+          yum remove python-requests -y
+          pip install docker-compose
+          chmod 777 /var/run/docker.sock
           cd /home/ec2-user
-          mkdir your-delivery-ssh
-          cd your-delivery-ssh
-          PEM_KEY_SECRET_NAME=${PemKeySecretName}
-          aws secretsmanager get-secret-value --secret-id $PEM_KEY_SECRET_NAME --query 'SecretString' --output text > your-delivery.pem
-          echo 'if [ -z "$SSH_AUTH_SOCK" ] ; then
-            eval `ssh-agent -s`
-            ssh-add /home/ec2-user/your-delivery-ssh/your-delivery.pem
-          fi' >> /home/ec2-user/.bashrc
+          mkdir your-delivery-consumer
+          cd your-delivery-consumer
+          export SQS_SHIPMENT_QUEUE_URL="${ShipmentQueue}"
+          echo "version: '3.7'
+          services:
+            your-delivery-consumer:
+              restart: on-failure
+              image: jooki997/your-delivery-consumer:1.0.0
+              ports:
+                - 8095:8095
+              environment:
+                - SPRING_ACTIVE_PROFILE=default
+                - QUEUE_URL=$SQS_SHIPMENT_QUEUE_URL
+              container_name: consumer
+              volumes:
+                - /home/ec2-user/your-delivery-consumer:/home/your-delivery-consumer
+          " > docker-compose.yaml
+          sed "s/SQS_SHIPMENT_QUEUE_URL/$SQS_SHIPMENT_QUEUE_URL/g" -i docker-compose.yaml
+          docker-compose up -d
+          yum -y install amazon-cloudwatch-agent
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
 Outputs:
-  BastionHostPublicIp:
-    Description: Bastion Host EC2 instance public IP
-    Value: !GetAtt BastionHostEC2Instance.PublicIp
   ProducerSSHConnectionCommand:
-    Description: Command to connect to Producer EC2 instance using SSH
-    Value: !Sub ssh ec2-user@${ProducerEC2Instance.PrivateIp}
+    Description: Producer EC2 instance public IP
+    Value: !GetAtt ProducerEC2Instance.PublicIp
   NotificationQueueConsumerSSHConnectionCommand:
-    Description: Command to connect to Notification Queue Consumer EC2 instance using SSH
-    Value: !Sub ssh ec2-user@${NotificationQueueConsumerEC2Instance.PrivateIp}
+    Description: Notification Consumer EC2 instance public IP
+    Value: !GetAtt NotificationQueueConsumerEC2Instance.PublicIp
   InventoryQueueConsumerSSHConnectionCommand:
-    Description: Command to connect to Inventory Queue Consumer EC2 instance using SSH
-    Value: !Sub ssh ec2-user@${InventoryQueueConsumerEC2Instance.PrivateIp}
+    Description: Inventory Consumer EC2 instance public IP
+    Value: !GetAtt InventoryQueueConsumerEC2Instance.PublicIp
   ShipmentQueueConsumerSSHConnectionCommand:
-    Description: Command to connect to Shipment Queue Consumer EC2 instance using SSH
-    Value: !Sub ssh ec2-user@${ShipmentQueueConsumerEC2Instance.PrivateIp}
+    Description: Shipment Consumer EC2 instance public IP
+    Value: !GetAtt ShipmentQueueConsumerEC2Instance.PublicIp
