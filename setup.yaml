@@ -113,7 +113,7 @@ Resources:
             Condition:
               ArnEquals:
                 aws:SourceArn: !Ref SNSTopic
-  ############################ EC2 #############
+  ############################ EC2 ############################
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -455,15 +455,15 @@ Resources:
           yum -y install amazon-cloudwatch-agent
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ParameterStoreCloudwatchConfigParameterName} -s
 Outputs:
-  ProducerSSHConnectionCommand:
+  ProducerPublicIp:
     Description: Producer EC2 instance public IP
     Value: !GetAtt ProducerEC2Instance.PublicIp
-  NotificationQueueConsumerSSHConnectionCommand:
+  NotificationQueueConsumerPublicIp:
     Description: Notification Consumer EC2 instance public IP
     Value: !GetAtt NotificationQueueConsumerEC2Instance.PublicIp
-  InventoryQueueConsumerSSHConnectionCommand:
+  InventoryQueueConsumerPublicIp:
     Description: Inventory Consumer EC2 instance public IP
     Value: !GetAtt InventoryQueueConsumerEC2Instance.PublicIp
-  ShipmentQueueConsumerSSHConnectionCommand:
+  ShipmentQueueConsumerPublicIp:
     Description: Shipment Consumer EC2 instance public IP
     Value: !GetAtt ShipmentQueueConsumerEC2Instance.PublicIp
